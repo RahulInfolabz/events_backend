@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
-const session = require("express-session");
 const connectDB = require("./db/dbConnect");
+const authMiddleware = require("./middleware/auth");
 require("dotenv").config();
 
 // ── Multer Instances ──────────────────────────────────────────────────────────
@@ -52,30 +52,23 @@ const { ResolveComplaint } = require("./apis/admin/ResolveComplaint");
 const { DashboardStats } = require("./apis/admin/DashboardStats");
 
 // ─────────────────────────────────────────────────────────────────────────────
-
 const app = express();
 const PORT = process.env.PORT || 8000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-
-app.use(
-  cors({
-    origin: ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173", "http://localhost:5174"],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  })
-);
-
-
-app.use(
-  cors({
-    origin: ["http://localhost:3000", "http://localhost:3001"],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  })
-);
+app.use(cors({
+  origin: [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://your-frontend.onrender.com", // ← replace with your actual frontend URL
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+}));
 
 // ── Static File Serving ───────────────────────────────────────────────────────
 app.use("/uploads/categories", express.static("uploads/categories"));
@@ -99,74 +92,48 @@ app.post("/changePassword", ChangePassword);
 //  PUBLIC APIs (no auth required)
 // ─────────────────────────────────────────────────────────────────────────────
 app.get("/categories", GetCategories);
-// filters: ?category_id= ?min_price= ?max_price=
 app.get("/events", GetEvents);
 app.get("/events/:id", GetEventDetails);
 app.get("/reviews", GetReviews);
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  USER APIs (session required)
+//  USER APIs (JWT required)
 // ─────────────────────────────────────────────────────────────────────────────
-app.get("/user/profile", GetProfile);
-app.post("/user/updateProfile", profileUpload.single("profile_pic"), UpdateProfile);
-app.post("/user/bookEvent", BookEvent);
-app.get("/user/myBookings", MyBookings);
-app.post("/user/cancelBooking", CancelBooking);
-app.post("/user/genOrderId", GenOrderId);
-app.post("/user/verifyPayment", VerifyPayment);
-app.post("/user/addReview", AddReview);
-app.post("/user/addComplaint", AddComplaint);
-app.get("/user/myComplaints", MyComplaints);
+app.get("/user/profile", authMiddleware, GetProfile);
+app.post("/user/updateProfile", authMiddleware, profileUpload.single("profile_pic"), UpdateProfile);
+app.post("/user/bookEvent", authMiddleware, BookEvent);
+app.get("/user/myBookings", authMiddleware, MyBookings);
+app.post("/user/cancelBooking", authMiddleware, CancelBooking);
+app.post("/user/genOrderId", authMiddleware, GenOrderId);
+app.post("/user/verifyPayment", authMiddleware, VerifyPayment);
+app.post("/user/addReview", authMiddleware, AddReview);
+app.post("/user/addComplaint", authMiddleware, AddComplaint);
+app.get("/user/myComplaints", authMiddleware, MyComplaints);
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  ADMIN APIs (session required)
+//  ADMIN APIs (JWT required)
 // ─────────────────────────────────────────────────────────────────────────────
-
-// Users
-app.get("/admin/users", GetUsers);
-app.post("/admin/updateUserStatus", UpdateUserStatus);
-
-// Categories
-app.post("/admin/addCategory", categoryUpload.single("image"), AddCategory);
-app.post("/admin/updateCategory", categoryUpload.single("image"), UpdateCategory);
-app.get("/admin/deleteCategory/:id", DeleteCategory);
-app.get("/admin/categories", GetAdminCategories);
-
-// Events — event_img + artist_image both handled via eventUpload
-app.post(
-  "/admin/addEvent",
-  eventUpload.fields([
-    { name: "event_img", maxCount: 1 },
-    { name: "artist_image", maxCount: 1 },
-  ]),
-  AddEvent
-);
-app.post(
-  "/admin/updateEvent",
-  eventUpload.fields([
-    { name: "event_img", maxCount: 1 },
-    { name: "artist_image", maxCount: 1 },
-  ]),
-  UpdateEvent
-);
-app.get("/admin/deleteEvent/:id", DeleteEvent);
-app.get("/admin/events", GetAdminEvents);
-
-// Bookings
-app.get("/admin/bookings", GetBookings);
-app.post("/admin/updateBooking", UpdateBooking);
-
-// Reports
-app.get("/admin/payments", GetPayments);
-app.get("/admin/reviews", GetAdminReviews);
-app.get("/admin/complaints", GetComplaints);
-app.post("/admin/resolveComplaint/:id", ResolveComplaint);
-app.get("/admin/dashboardStats", DashboardStats);
+app.get("/admin/users", authMiddleware, GetUsers);
+app.post("/admin/updateUserStatus", authMiddleware, UpdateUserStatus);
+app.post("/admin/addCategory", authMiddleware, categoryUpload.single("image"), AddCategory);
+app.post("/admin/updateCategory", authMiddleware, categoryUpload.single("image"), UpdateCategory);
+app.get("/admin/deleteCategory/:id", authMiddleware, DeleteCategory);
+app.get("/admin/categories", authMiddleware, GetAdminCategories);
+app.post("/admin/addEvent", authMiddleware, eventUpload.fields([{ name: "event_img", maxCount: 1 }, { name: "artist_image", maxCount: 1 }]), AddEvent);
+app.post("/admin/updateEvent", authMiddleware, eventUpload.fields([{ name: "event_img", maxCount: 1 }, { name: "artist_image", maxCount: 1 }]), UpdateEvent);
+app.get("/admin/deleteEvent/:id", authMiddleware, DeleteEvent);
+app.get("/admin/events", authMiddleware, GetAdminEvents);
+app.get("/admin/bookings", authMiddleware, GetBookings);
+app.post("/admin/updateBooking", authMiddleware, UpdateBooking);
+app.get("/admin/payments", authMiddleware, GetPayments);
+app.get("/admin/reviews", authMiddleware, GetAdminReviews);
+app.get("/admin/complaints", authMiddleware, GetComplaints);
+app.post("/admin/resolveComplaint/:id", authMiddleware, ResolveComplaint);
+app.get("/admin/dashboardStats", authMiddleware, DashboardStats);
 
 app.get("/", (req, res) => {
   res.send("Welcome to Events Service Platform API!");
 });
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 app.listen(PORT, () =>
